@@ -9,7 +9,12 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "setup": "npx expo install expo-camera expo-file-system expo-sharing expo-document-picker && npm install react-native-paper react-native-vector-icons"
+    "setup": "npx expo install expo-camera expo-file-system expo-sharing expo-document-picker && npm install react-native-paper react-native-vector-icons",
+    "build:android": "eas build --platform android",
+    "build:android:preview": "eas build --platform android --profile preview",
+    "build:android:production": "eas build --platform android --profile production",
+    "build:local": "npx expo prebuild --platform android && cd android && ./gradlew assembleDebug",
+    "build:local:release": "npx expo prebuild --platform android && cd android && ./gradlew assembleRelease"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",

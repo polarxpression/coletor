@@ -12,7 +12,8 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "This app uses camera to scan barcodes for inventory management."
-      }
+      },
+      "bundleIdentifier": "com.coletor.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -24,7 +25,9 @@
         "CAMERA",
         "WRITE_EXTERNAL_STORAGE",
         "READ_EXTERNAL_STORAGE"
-      ]
+      ],
+      "package": "com.coletor.app",
+      "versionCode": 1
     },
     "web": {
       "bundler": "metro",
@@ -51,6 +54,11 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "your-project-id-here"
+      }
     }
   }
 }
