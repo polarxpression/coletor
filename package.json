@@ -11,10 +11,20 @@
     "lint": "expo lint",
     "setup": "npx expo install expo-camera expo-file-system expo-sharing expo-document-picker && npm install react-native-paper react-native-vector-icons",
     "build:android": "eas build --platform android",
+    "build:android:dev": "eas build --platform android --profile development",
     "build:android:preview": "eas build --platform android --profile preview",
     "build:android:production": "eas build --platform android --profile production",
-    "build:local": "npx expo prebuild --platform android && cd android && ./gradlew assembleDebug",
-    "build:local:release": "npx expo prebuild --platform android && cd android && ./gradlew assembleRelease"
+    "build:android:wait": "eas build --platform android --profile preview --wait",
+    "build:local": "npx expo prebuild --platform android --clean && cd android && chmod +x gradlew && ./gradlew assembleDebug",
+    "build:local:release": "npx expo prebuild --platform android --clean && cd android && chmod +x gradlew && ./gradlew assembleRelease",
+    "build:local:clean": "npx expo prebuild --platform android --clean",
+    "prebuild": "npx expo prebuild --platform android",
+    "prebuild:clean": "npx expo prebuild --platform android --clean",
+    "eas:configure": "eas build:configure",
+    "eas:login": "eas login",
+    "eas:whoami": "eas whoami",
+    "build:status": "eas build:list",
+    "build:cancel": "eas build:cancel"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",

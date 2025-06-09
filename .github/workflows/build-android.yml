@@ -1,4 +1,4 @@
-name: EAS Build Android
+name: Build Android App
 
 on:
   push:
@@ -17,29 +17,33 @@ on:
           - production
           - development
 
+env:
+  NODE_VERSION: '18'
+
 jobs:
   build:
-    name: Install and build
+    name: Build Android App
     runs-on: ubuntu-latest
     
     steps:
       - name: Check for EXPO_TOKEN
         run: |
           if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
-            echo "You must provide an EXPO_TOKEN secret linked to this project's Expo account in this repo's secrets. Learn more: https://docs.expo.dev/eas-update/github-actions"
+            echo "::error::You must provide an EXPO_TOKEN secret linked to this project's Expo account in this repo's secrets."
+            echo "Learn more: https://docs.expo.dev/eas-update/github-actions"
             exit 1
           fi
 
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18.x
-          cache: npm
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
 
-      - name: Setup EAS
+      - name: Setup EAS CLI
         uses: expo/expo-github-action@v8
         with:
           expo-version: latest
@@ -49,107 +53,141 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Determine build type
-        id: build_type
+      - name: Determine build type and profile
+        id: build_config
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "type=${{ github.event.inputs.build_type }}" >> $GITHUB_OUTPUT
+            BUILD_TYPE="${{ github.event.inputs.build_type }}"
           elif [ "${{ github.ref }}" = "refs/heads/main" ] || [ "${{ github.ref }}" = "refs/heads/master" ]; then
-            echo "type=production" >> $GITHUB_OUTPUT
+            BUILD_TYPE="production"
+          elif [ "${{ github.ref }}" = "refs/heads/develop" ]; then
+            BUILD_TYPE="preview"
           else
-            echo "type=preview" >> $GITHUB_OUTPUT
+            BUILD_TYPE="preview"
           fi
-
-      - name: Build on EAS
-        run: |
-          BUILD_TYPE="${{ steps.build_type.outputs.type }}"
-          echo "Building with profile: $BUILD_TYPE"
           
-          if [ "$BUILD_TYPE" = "production" ]; then
-            eas build --platform android --profile production --non-interactive --no-wait
-          elif [ "$BUILD_TYPE" = "development" ]; then
-            eas build --platform android --profile development --non-interactive --no-wait
-          else
-            eas build --platform android --profile preview --non-interactive --no-wait
-          fi
+          echo "build_type=$BUILD_TYPE" >> $GITHUB_OUTPUT
+          echo "::notice::Building with profile: $BUILD_TYPE"
 
-  build-and-upload:
-    name: Build and upload APK
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-    
-    steps:
-      - name: Check for EXPO_TOKEN
+      - name: Create EAS build
+        id: build
         run: |
-          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
-            echo "You must provide an EXPO_TOKEN secret linked to this project's Expo account in this repo's secrets."
+          BUILD_TYPE="${{ steps.build_config.outputs.build_type }}"
+          
+          # Start the build and capture output
+          if [ "$BUILD_TYPE" = "production" ]; then
+            BUILD_OUTPUT=$(eas build --platform android --profile production --non-interactive --json)
+          elif [ "$BUILD_TYPE" = "development" ]; then
+            BUILD_OUTPUT=$(eas build --platform android --profile development --non-interactive --json)
+          else
+            BUILD_OUTPUT=$(eas build --platform android --profile preview --non-interactive --json)
+          fi
+          
+          # Extract build ID from output
+          BUILD_ID=$(echo "$BUILD_OUTPUT" | jq -r '.[] | select(.platform == "android") | .id')
+          echo "build_id=$BUILD_ID" >> $GITHUB_OUTPUT
+          echo "::notice::Build started with ID: $BUILD_ID"
+
+      - name: Wait for build completion
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        id: wait_build
+        run: |
+          BUILD_ID="${{ steps.build.outputs.build_id }}"
+          
+          echo "::notice::Waiting for build $BUILD_ID to complete..."
+          
+          # Wait for build to complete (timeout after 30 minutes)
+          timeout=1800
+          interval=30
+          elapsed=0
+          
+          while [ $elapsed -lt $timeout ]; do
+            BUILD_STATUS=$(eas build:view $BUILD_ID --json | jq -r '.status')
+            echo "::notice::Build status: $BUILD_STATUS"
+            
+            if [ "$BUILD_STATUS" = "finished" ]; then
+              BUILD_URL=$(eas build:view $BUILD_ID --json | jq -r '.artifacts.buildUrl')
+              echo "build_url=$BUILD_URL" >> $GITHUB_OUTPUT
+              echo "::notice::Build completed successfully!"
+              exit 0
+            elif [ "$BUILD_STATUS" = "errored" ] || [ "$BUILD_STATUS" = "canceled" ]; then
+              echo "::error::Build failed with status: $BUILD_STATUS"
+              exit 1
+            fi
+            
+            sleep $interval
+            elapsed=$((elapsed + interval))
+          done
+          
+          echo "::error::Build timed out after 30 minutes"
+          exit 1
+
+      - name: Download and upload APK
+        if: steps.wait_build.outputs.build_url != '' && steps.wait_build.outputs.build_url != 'null'
+        run: |
+          BUILD_URL="${{ steps.wait_build.outputs.build_url }}"
+          APK_NAME="coletor-${{ steps.build_config.outputs.build_type }}-${{ github.sha }}.apk"
+          
+          echo "::notice::Downloading APK from: $BUILD_URL"
+          curl -L -o "$APK_NAME" "$BUILD_URL"
+          
+          if [ -f "$APK_NAME" ]; then
+            echo "::notice::APK downloaded successfully"
+            ls -lh "$APK_NAME"
+            echo "apk_path=$APK_NAME" >> $GITHUB_ENV
+          else
+            echo "::error::Failed to download APK"
             exit 1
           fi
 
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18.x
-          cache: npm
-
-      - name: Setup EAS
-        uses: expo/expo-github-action@v8
-        with:
-          expo-version: latest
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build APK
-        run: eas build --platform android --profile preview --non-interactive --wait
-
-      - name: Get build URL
-        id: build_url
-        run: |
-          BUILD_URL=$(eas build:list --platform android --limit 1 --json | jq -r '.[0].artifacts.buildUrl')
-          echo "url=$BUILD_URL" >> $GITHUB_OUTPUT
-
-      - name: Download APK
-        if: steps.build_url.outputs.url != 'null'
-        run: |
-          curl -L -o app-release.apk "${{ steps.build_url.outputs.url }}"
-          ls -la app-release.apk
-
-      - name: Upload APK artifact
-        if: steps.build_url.outputs.url != 'null'
+      - name: Upload APK as artifact
+        if: env.apk_path != ''
         uses: actions/upload-artifact@v4
         with:
-          name: android-apk-${{ github.sha }}
-          path: app-release.apk
+          name: android-apk-${{ steps.build_config.outputs.build_type }}-${{ github.sha }}
+          path: ${{ env.apk_path }}
           retention-days: 30
 
       - name: Create Release
-        if: steps.build_url.outputs.url != 'null' && github.event_name == 'push'
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && env.apk_path != ''
+        uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ github.run_number }}
-          release_name: Release v${{ github.run_number }}
+          name: Release v${{ github.run_number }}
           body: |
-            Automated release created from commit ${{ github.sha }}
+            🚀 **Automated Release**
             
-            Download the APK from the artifacts or from the direct link below.
+            **Build Information:**
+            - Commit: ${{ github.sha }}
+            - Build Type: ${{ steps.build_config.outputs.build_type }}
+            - Build ID: ${{ steps.build.outputs.build_id }}
+            - Platform: Android
+            
+            **Download:**
+            The APK file is attached to this release and also available as a GitHub Actions artifact.
+            
+            **Changes:**
+            ${{ github.event.head_commit.message }}
+          files: ${{ env.apk_path }}
           draft: false
           prerelease: false
-
-      - name: Upload Release Asset
-        if: steps.build_url.outputs.url != 'null' && github.event_name == 'push'
-        uses: actions/upload-release-asset@v1
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: app-release.apk
-          asset_name: coletor-v${{ github.run_number }}.apk
-          asset_content_type: application/vnd.android.package-archive
+
+  notify:
+    name: Notify Build Status
+    runs-on: ubuntu-latest
+    needs: build
+    if: always()
+    
+    steps:
+      - name: Build Success Notification
+        if: needs.build.result == 'success'
+        run: |
+          echo "::notice::✅ Android build completed successfully!"
+          
+      - name: Build Failure Notification
+        if: needs.build.result == 'failure'
+        run: |
+          echo "::error::❌ Android build failed!"
