@@ -1,46 +1,29 @@
-name: "Build Android app"
-
+name: react-native-android-build-apk
 on:
   push:
     branches:
       - master
-
 jobs:
-  build:
-    runs-on: macos-latest
+  install-and-test:
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Install Java
-        uses: actions/setup-java@v3
-        with:
-          java-version: 17
-          distribution: adopt
-          cache: gradle
-
-      - name: Validate Gradle wrapper
-        uses: gradle/wrapper-validation-action@v1
-
-      - name: Setup Node  
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-          cache: 'yarn'
-
-      - name: Run Yarn Install
+      - uses: actions/checkout@v3
+      - name: Install npm dependencies
         run: |
-             npm i -g corepack
-             yarn install
-
-      - name: Build application
+          npm install
+  build-android:
+    needs: install-and-test
+    runs-on: ubuntu-latest
+    steps: 
+      - uses: actions/checkout@v3
+      - name: Install npm dependencies
         run: |
-             cd android
-             ./gradlew assembleRelease
-
-      - name: Upload application
-        uses: actions/upload-artifact@v4.6.2
+          npm install
+      - name: Build Android Release
+        run: |
+          cd android && ./gradlew assembleRelease
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v1
         with:
-          name: app
-          path: android/app/build/outputs/apk/release/app-release.apk
-          retention-days: 3
+          name: app-release.apk
+          path: android/app/build/outputs/apk/release/
