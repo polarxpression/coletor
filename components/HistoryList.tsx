@@ -1,10 +1,10 @@
 // components/HistoryList.tsx
-import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
-import { View, StyleSheet, FlatList, Text, TouchableOpacity, SafeAreaView, Platform, StatusBar } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import { Card, Button, Searchbar, Menu, Portal, Dialog, ActivityIndicator, Provider as PaperProvider, DefaultTheme } from 'react-native-paper';
-import { MaterialIcons } from '@expo/vector-icons';
+import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
+import { FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Button, Card, DefaultTheme, Dialog, Menu, Provider as PaperProvider, Portal, Searchbar } from 'react-native-paper';
 
 interface HistoryFile {
   name: string;
@@ -308,8 +308,9 @@ export const HistoryList = forwardRef((props: HistoryListProps, ref) => {
               data={filteredFiles}
               renderItem={renderHistoryItem}
               keyExtractor={(item) => item.uri}
-              style={styles.list}
-              contentContainerStyle={styles.listContent}
+              style={[styles.list, { maxHeight: '60%' }]}
+              contentContainerStyle={[styles.listContent, { flexGrow: 1 }]}
+              showsVerticalScrollIndicator={false}
             />
           )}
 

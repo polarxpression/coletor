@@ -1,29 +1,28 @@
 // BarcodeScanner.tsx
 
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Alert, Dimensions, FlatList, RefreshControl, TouchableOpacity } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import * as DocumentPicker from 'expo-document-picker';
+import React, { useEffect, useState } from 'react';
+import { Alert, FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
 import {
-  Provider as PaperProvider,
   Appbar,
-  FAB,
-  Card,
   Button,
-  Dialog,
-  Portal,
-  TextInput,
-  IconButton,
-  Snackbar,
-  Badge,
-  Surface,
-  Menu,
-  Divider,
+  Card,
   DefaultTheme,
-  Text,
+  Dialog,
+  Divider,
+  FAB,
   Icon,
+  IconButton,
+  Menu,
+  Provider as PaperProvider,
+  Portal,
+  Snackbar,
+  Surface,
+  Text,
+  TextInput
 } from 'react-native-paper';
 
 interface BarcodeItem {
@@ -513,20 +512,22 @@ const BarcodeScanner: React.FC = () => {
             visible={mainMenuVisible}
             onDismiss={() => setMainMenuVisible(false)}
             anchor={<Appbar.Action icon="dots-vertical" onPress={() => setMainMenuVisible(true)} />}
+            contentStyle={styles.menuContent}
           >
-
             <Menu.Item
               onPress={() => { setMainMenuVisible(false); handleImport(); }}
               title="Importar de arquivo"
               leadingIcon="file-download"
+              style={styles.menuItem}
             />
-            <Divider />
+            <Divider style={styles.menuDivider} />
             <Menu.Item
               onPress={() => { setMainMenuVisible(false); clearAll(); }}
               title="Limpar lista atual"
               leadingIcon="delete-sweep"
               disabled={!currentCollection || currentCollection.items.length === 0}
               titleStyle={{ color: customTheme.colors.error }}
+              style={styles.menuItem}
             />
           </Menu>
         </Appbar.Header>
@@ -595,7 +596,9 @@ const BarcodeScanner: React.FC = () => {
               data={getSortedItems()}
               keyExtractor={(item, index) => item.barcode + index}
               renderItem={({ item }) => (
-                <Card style={styles.itemCard} elevation={1}>
+                <Card style={[styles.itemCard, {backgroundColor: customTheme.colors.surface}]}
+                  elevation={1}
+                >
                   <Card.Content style={styles.itemCardContent}>
                     <View style={styles.itemInfo}>
                       <Text style={styles.itemBarcode} numberOfLines={1} ellipsizeMode="tail">{item.barcode}</Text>
@@ -622,26 +625,28 @@ const BarcodeScanner: React.FC = () => {
               )}
               ListEmptyComponent={
                 <View style={styles.emptyContainer}>
-                    <Icon source="package-variant-closed" size={64} color="#cccccc" />
-                    <Text variant="titleLarge" style={styles.emptyText}>Nenhum Item</Text>
-                    <Text variant="bodyMedium" style={styles.emptyText}>
-                      Pressione 'Escanear' para começar.
-                    </Text>
+                  <Icon source="package-variant-closed" size={64} color="#cccccc" />
+                  <Text variant="titleLarge" style={styles.emptyText}>Nenhum Item</Text>
+                  <Text variant="bodyMedium" style={styles.emptyText}>
+                    Pressione 'Escanear' para começar.
+                  </Text>
                 </View>
               }
-              contentContainerStyle={{ paddingBottom: 100 }}
-              style={{ flex: 1 }}
+              contentContainerStyle={{ paddingBottom: 100, flexGrow: 1 }}
+              style={{ flex: 1, maxHeight: '60%' }}
+              showsVerticalScrollIndicator={false}
             />
           </View>
         )}
 
         {!scanning && (
-            <FAB
-            style={styles.fab}
+          <FAB
+            style={[styles.fab, { backgroundColor: customTheme.colors.primary }]}
             icon="barcode-scan"
             onPress={() => setScanning(true)}
             label="Escanear"
-            />
+            color="#fff"
+          />
         )}
 
         <Portal>
@@ -768,7 +773,7 @@ const styles = StyleSheet.create({
   scanArea: { width: 280, height: 280, borderWidth: 2, borderColor: '#fff', borderRadius: 12, backgroundColor: 'transparent' },
   cancelButton: { position: 'absolute', bottom: 50, left: 20, right: 20 },
   fab: { position: 'absolute', margin: 16, right: 0, bottom: 0 },
-  permissionCard: { margin: 16, padding: 8 },
+  permissionCard: { position: 'absolute', left: 16, right: 16, top: '50%', transform: [{ translateY: -120 }], justifyContent: 'center', alignContent: 'center', padding: 16 },
   permissionButton: { marginTop: 16 },
   textInput: { 
     marginTop: 8, 
@@ -899,6 +904,23 @@ const styles = StyleSheet.create({
     marginTop: 2,
     textAlign: 'center',
     letterSpacing: 1,
+  },
+  menuContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    paddingVertical: 8,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+  },
+  menuItem: {
+    paddingVertical: 8,
+    marginHorizontal: 4,
+  },
+  menuDivider: {
+    marginVertical: 8,
   },
 });
 
